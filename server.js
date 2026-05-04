@@ -11,42 +11,50 @@ let agents = [
 app.get("/token/:agentId", (req, res) => {
   const AccessToken = twilio.jwt.AccessToken;
   const VoiceGrant = AccessToken.VoiceGrant;
-  const agentId = req.params.agentId;
-  const voiceGrant = new VoiceGrant({
-    incomingAllow: true
-  });
   const token = new AccessToken(
     process.env.ACCOUNT_SID,
     process.env.API_KEY_SID,
     process.env.API_KEY_SECRET,
-    { identity: agentId }
+    { identity: req.params.agentId }
   );
-  token.addGrant(voiceGrant);
-  res.json({
-    token: token.toJwt()
-  });
+  token.addGrant(
+    new VoiceGrant({
+      outgoingApplicationSid: process.env.TWIML_APP_SID,
+      incomingAllow: true
+    })
+  );
+  res.json({ token: token.toJwt() });
 });
 app.post("/voice", (req, res) => {
   const VoiceResponse = twilio.twiml.VoiceResponse;
   const twiml = new VoiceResponse();
   const agent = agents.find(a => a.available);
   if (agent) {
-    agent.available = false; 
-    const dial = twiml.dial();
+    console.log("Routing call to:", agent.id);
+    agent.available = false;
+    const dial = twiml.dial({
+      action: "/call-status",
+      method: "POST"
+    });
     dial.client(agent.id);
   } else {
-    twiml.say("All agents are busy. Please wait.");
+    console.log("All agents busy");
+    twiml.say("All agents are busy. Please try again later.");
   }
   res.type("text/xml");
   res.send(twiml.toString());
 });
 app.post("/call-status", (req, res) => {
-  const agentId = req.body.To; 
+  console.log("Call ended:", req.body);
+  const agentId = req.body.To;
   const agent = agents.find(a => a.id === agentId);
-  if (agent) agent.available = true;
+  if (agent) {
+    agent.available = true;
+    console.log(agentId, "is now available");
+  }
   res.sendStatus(200);
 });
 app.use(express.static("public"));
 app.listen(3000, () => {
-  console.log("Call Center running on http://localhost:3000");
+  console.log("Server running on http://localhost:3000");
 });
