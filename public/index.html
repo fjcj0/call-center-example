@@ -1,0 +1,34 @@
+<!doctype html>
+<html>
+  <head>
+    <title>Call Center</title>
+  </head>
+  <body>
+    <h2>Agent Dashboard</h2>
+    <button onclick="start('agent-1')">Login Agent 1</button>
+    <button onclick="start('agent-2')">Login Agent 2</button>
+    <p id="status">Idle</p>
+    <script src="https://sdk.twilio.com/js/client/v1.13/twilio.min.js"></script>
+    <script>
+      let device;
+      async function start(agentId) {
+        const res = await fetch(`/token/${agentId}`);
+        const data = await res.json();
+        device = new Twilio.Device(data.token, {
+          debug: true,
+        });
+        document.getElementById("status").innerText = agentId + " ready";
+        device.on("incoming", (call) => {
+          document.getElementById("status").innerText = "Incoming call...";
+          call.accept();
+          call.on("accept", () => {
+            document.getElementById("status").innerText = "In call";
+          });
+          call.on("disconnect", () => {
+            document.getElementById("status").innerText = "Idle";
+          });
+        });
+      }
+    </script>
+  </body>
+</html>
